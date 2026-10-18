@@ -1,0 +1,267 @@
+:root {
+    --bg: #0b1110;
+    --panel: #121b18;
+    --border: #263630;
+    --text: #edf5f0;
+    --muted: #9caaa2;
+    --green: #66e3a0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.6;
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px max(5%, calc((100% - 1100px) / 2));
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 21px;
+    font-weight: 750;
+}
+
+.brand-icon,
+.accent {
+    color: var(--green);
+}
+
+.brand-icon {
+    margin-right: 8px;
+}
+
+.nav-label,
+.eyebrow,
+.method-number {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 1.5px;
+}
+
+.container {
+    max-width: 1000px;
+    width: 90%;
+    margin: 0 auto;
+}
+
+.hero {
+    padding: 65px 0 35px;
+}
+
+.hero h1 {
+    font-size: clamp(38px, 6vw, 64px);
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin: 15px 0;
+}
+
+.hero p,
+.method-card > span:last-child {
+    color: var(--muted);
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 26px;
+    margin-bottom: 24px;
+}
+
+.panel h2 {
+    font-size: 17px;
+    margin: 0 0 22px;
+}
+
+.upload-area {
+    min-height: 190px;
+    border: 1px dashed #527365;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: center;
+    padding: 24px;
+}
+
+.upload-area:hover {
+    border-color: var(--green);
+    background: #172820;
+}
+
+.upload-area > span:last-of-type {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.upload-icon {
+    color: var(--green);
+    font-size: 35px;
+}
+
+.file-name,
+.status {
+    color: var(--muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.method-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.method-card {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    position: relative;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.method-card:has(input:checked) {
+    border-color: var(--green);
+    background: #182a21;
+}
+
+.method-card input {
+    position: absolute;
+    right: 15px;
+    accent-color: var(--green);
+}
+
+.method-card > span:last-child {
+    font-size: 13px;
+}
+
+.primary-button,
+.download-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 22px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--green);
+    color: #092116;
+    font-weight: 750;
+    font-size: 15px;
+    text-decoration: none;
+    cursor: pointer;
+    margin-top: 22px;
+}
+
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.image-grid > div {
+    min-width: 0;
+}
+
+.image-grid h3 {
+    font-size: 14px;
+}
+
+.image-grid img {
+    display: block;
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    background: #070b09;
+    border-radius: 10px;
+}
+
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.metrics > div {
+    background: #0b1310;
+    border: 1px solid var(--border);
+    padding: 14px;
+    border-radius: 10px;
+}
+
+.metrics span,
+.metrics strong {
+    display: block;
+}
+
+.metrics span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.metrics strong {
+    margin-top: 5px;
+    color: var(--green);
+    overflow-wrap: anywhere;
+}
+
+.hidden {
+    display: none !important;
+}
+
+footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 20px 0 35px;
+}
+
+@media (max-width: 600px) {
+    .nav-label {
+        display: none;
+    }
+
+    .hero {
+        padding-top: 40px;
+    }
+
+    .panel {
+        padding: 18px;
+    }
+
+    .method-grid,
+    .image-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .primary-button,
+    .download-button {
+        width: 100%;
+    }
+}

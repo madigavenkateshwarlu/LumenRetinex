@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Generated and uploaded images
+uploads/*
+!uploads/.gitkeep
+
+# Test outputs and temporary files
+test_output.jpg
+*_enhanced.jpg
+msr_brightness_test.jpg
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

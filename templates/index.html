@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenRetinex | Low-Light Enhancement</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <a class="brand" href="/">
+            <span class="brand-icon">✦</span>
+            <span>Lumen<span class="accent">Retinex</span></span>
+        </a>
+        <span class="nav-label">DIGITAL IMAGE PROCESSING</span>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <span class="eyebrow">IMAGE ENHANCEMENT STUDIO</span>
+            <h1>Bring dark images<br>into the <span class="accent">light.</span></h1>
+            <p>Enhance low-light photos using classical Digital Image Processing algorithms.</p>
+        </section>
+
+        <section class="panel">
+            <h2>01 / Upload your image</h2>
+            <label class="upload-area" id="uploadArea" for="imageInput">
+                <span class="upload-icon">↑</span>
+                <strong>Drop your image here</strong>
+                <span>or click to browse · JPG, PNG, WEBP · Max 10 MB</span>
+                <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
+            </label>
+            <p id="fileName" class="file-name">No image selected</p>
+            <div id="previewContainer" class="image-grid hidden">
+                <div>
+                    <h3>Original image</h3>
+                    <img id="originalPreview" alt="Original image preview">
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>02 / Choose an algorithm</h2>
+            <div class="method-grid">
+                <label class="method-card">
+                    <input type="radio" name="method" value="log">
+                    <span class="method-number">01</span>
+                    <strong>Log Transform</strong>
+                    <span>Expands darker pixel intensities.</span>
+                </label>
+                <label class="method-card">
+                    <input type="radio" name="method" value="ssr">
+                    <span class="method-number">02</span>
+                    <strong>Single Scale Retinex</strong>
+                    <span>Estimates illumination at one scale.</span>
+                </label>
+                <label class="method-card">
+                    <input type="radio" name="method" value="msr" checked>
+                    <span class="method-number">03</span>
+                    <strong>Multi-Scale Retinex</strong>
+                    <span>Combines several illumination scales.</span>
+                </label>
+                <label class="method-card">
+                    <input type="radio" name="method" value="decomposition">
+                    <span class="method-number">04</span>
+                    <strong>Illumination–Reflectance</strong>
+                    <span>Separates estimated illumination and reflectance.</span>
+                </label>
+            </div>
+            <button id="enhanceButton" class="primary-button">Enhance image <span>→</span></button>
+            <p id="status" class="status" role="status"></p>
+        </section>
+
+        <section id="results" class="panel hidden">
+            <h2>03 / Enhancement results</h2>
+            <div class="image-grid">
+                <div>
+                    <h3>Original</h3>
+                    <img id="originalResult" alt="Original image">
+                </div>
+                <div>
+                    <h3>Enhanced</h3>
+                    <img id="enhancedResult" alt="Enhanced image">
+                </div>
+            </div>
+
+            <div class="metrics">
+                <div><span>Brightness before</span><strong id="brightnessBefore">—</strong></div>
+                <div><span>Brightness after</span><strong id="brightnessAfter">—</strong></div>
+                <div><span>Contrast before</span><strong id="contrastBefore">—</strong></div>
+                <div><span>Contrast after</span><strong id="contrastAfter">—</strong></div>
+                <div><span>Processing time</span><strong id="processingTime">—</strong></div>
+            </div>
+
+            <a id="downloadButton" class="download-button" href="#" download="enhanced.png">
+                Download enhanced image ↓
+            </a>
+        </section>
+
+        <footer>
+            <p>LowLightEnhance · Classical DIP algorithms · Built with Python and OpenCV</p>
+        </footer>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
