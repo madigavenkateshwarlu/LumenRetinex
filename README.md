@@ -1,156 +1,414 @@
-LumenRetinex 🌙
+LumenRetinex — Low-Light Image Enhancement
 
-Low-Light Image Enhancement Using Digital Image Processing
+A Digital Image Processing (DIP) project using Retinex theory to enhance images captured in low-light conditions.
 
-LumenRetinex is a web-based Digital Image Processing (DIP) project designed to improve the visibility and appearance of images captured under poor lighting conditions. It implements classical image enhancement techniques and provides a web interface for uploading images and viewing enhancement results.
+LumenRetinex is a web-based image enhancement application designed to improve the visibility of dark images while preserving important image details and natural-looking colours. It uses image processing techniques such as logarithmic transformation, Single-Scale Retinex (SSR), Multi-Scale Retinex (MSR), and illumination-reflectance decomposition.
 
-📌 Project Overview
+Table of Contents
 
-Images captured in low-light environments often suffer from poor visibility, low contrast, and loss of detail. LumenRetinex applies image processing techniques to improve brightness, contrast, and visual clarity.
+- "Project Overview" (#project-overview)
+- "Problem Statement" (#problem-statement)
+- "Objectives" (#objectives)
+- "Features" (#features)
+- "Digital Image Processing Concepts" (#digital-image-processing-concepts)
+- "Algorithms Implemented" (#algorithms-implemented)
+- "Technologies Used" (#technologies-used)
+- "Project Architecture" (#project-architecture)
+- "Project Structure" (#project-structure)
+- "Installation" (#installation)
+- "How to Run" (#how-to-run)
+- "How to Use" (#how-to-use)
+- "Application Screenshots" (#application-screenshots)
+- "Testing and Evaluation" (#testing-and-evaluation)
+- "Limitations" (#limitations)
+- "Future Enhancements" (#future-enhancements)
+- "Conclusion" (#conclusion)
+- "References" (#references)
+- "Author" (#author)
 
-🎯 Objectives
+Project Overview
 
-- Enhance images captured in low-light conditions.
-- Implement classical Digital Image Processing algorithms.
-- Compare original images with enhanced outputs.
-- Display image quality measurements before and after processing.
-- Provide a simple web interface for image enhancement.
+Images captured in poor lighting conditions may appear dark, unclear, and low in contrast. Important objects, textures, and colour information can become difficult to identify.
 
-⚙️ Technologies Used
+LumenRetinex addresses this problem using Digital Image Processing techniques. The application accepts an input image, applies a selected enhancement method, and produces an enhanced output image.
 
-- Python — core image processing
-- Flask — web application
-- OpenCV — image manipulation and enhancement
-- NumPy — numerical operations
-- HTML and CSS — web interface
-- JavaScript — frontend interactions
+The project focuses on improving image visibility while attempting to preserve useful details and natural colour information.
 
-🧠 Algorithms
+Problem Statement
 
-The project includes the following techniques:
+To develop a web-based image enhancement system that improves the visibility and contrast of low-light images using Retinex-based image processing techniques and logarithmic transformation.
 
-1. Logarithmic Transformation — expands dark intensity levels to improve visibility.
-2. Single-Scale Retinex (SSR) — estimates illumination using a Gaussian-blurred image and enhances reflectance.
-3. Multi-Scale Retinex (MSR) — combines Retinex results at multiple scales.
-4. Illumination–Reflectance Decomposition — separates an image into illumination and reflectance components for analysis and enhancement.
+Objectives
 
-The available algorithms can be selected and evaluated according to their implementation in the application.
+- Enhance images captured in low-light environments.
+- Improve brightness and contrast.
+- Implement Single-Scale Retinex and Multi-Scale Retinex methods.
+- Study illumination and reflectance decomposition.
+- Preserve useful image details and colour information.
+- Provide a simple web interface for uploading and processing images.
+- Compare original images with their enhanced results.
+- Evaluate enhancement using image statistics and visual inspection.
 
-✨ Features
+Features
 
-- Upload an image through a web interface.
-- Process low-light images using supported algorithms.
-- View original and enhanced images side by side.
-- Inspect intermediate outputs where available, such as illumination and reflectance.
-- Review image brightness, contrast, and processing-time measurements where implemented.
-- Download or save enhanced results if supported by the current interface.
+- Image Upload: Select an image from your device.
+- Low-Light Enhancement: Improve visibility in dark images.
+- Logarithmic Transformation: Expand details in darker intensity ranges.
+- Single-Scale Retinex (SSR): Estimate illumination using a Gaussian surround at one scale.
+- Multi-Scale Retinex (MSR): Combine Retinex results from multiple scales.
+- Illumination-Reflectance Decomposition: Represent an image in terms of illumination and reflectance.
+- Colour Preservation: Use luminance-based processing where implemented to help retain natural colours.
+- Enhanced Image Output: Display or save the processed image.
+- Image Statistics: Inspect available brightness, contrast, or related measurements.
+- Web-Based Interface: Use the application through a browser.
 
-📁 Project Structure
+The availability of individual features depends on the implementation in the current version of the application.
 
-LumenRetinex/
+Digital Image Processing Concepts
+
+1. Retinex Theory
+
+Retinex theory, associated with Edwin H. Land and John J. McCann, explains how visual perception can estimate surface reflectance despite changes in illumination.
+
+A simplified image formation model is:
+
+[
+I(x,y)=R(x,y),L(x,y)
+]
+
+Where:
+
+- (I(x,y)) is the observed image.
+- (R(x,y)) is the reflectance component.
+- (L(x,y)) is the illumination component.
+- (x,y) represent pixel coordinates.
+
+The observed image contains information about both the illumination falling on a scene and the reflectance of its surfaces.
+
+Taking logarithms gives:
+
+[
+\log I(x,y)=\log R(x,y)+\log L(x,y)
+]
+
+Retinex methods estimate and compensate for illumination variations to reveal details in dark regions.
+
+2. Logarithmic Transformation
+
+Logarithmic transformation can expand lower intensity values while compressing higher values.
+
+A common transformation is:
+
+[
+s=c\log(1+r)
+]
+
+Where:
+
+- (r) is the input pixel intensity.
+- (s) is the output intensity.
+- (c) is a scaling constant.
+
+For an 8-bit image, the result is normally normalized or clipped to the valid intensity range.
+
+3. Single-Scale Retinex (SSR)
+
+Single-Scale Retinex uses a Gaussian-filtered version of the image to estimate local illumination.
+
+[
+SSR(x,y)=\log(I(x,y)+\epsilon)
+-\log((G_\sigma*I)(x,y)+\epsilon)
+]
+
+Where:
+
+- (I(x,y)) is the input intensity.
+- (G_\sigma) is a Gaussian surround function.
+- (*) denotes convolution.
+- (\sigma) controls the scale of the Gaussian filter.
+- (\epsilon) is a small positive value used to avoid taking the logarithm of zero.
+
+SSR can improve local contrast, but its output depends strongly on the selected scale and may require normalization.
+
+4. Multi-Scale Retinex (MSR)
+
+Multi-Scale Retinex combines results obtained using different Gaussian scales.
+
+[
+MSR(x,y)=\sum_{k=1}^{K}w_k
+\left[
+\log(I(x,y)+\epsilon)
+-\log((G_{\sigma_k}*I)(x,y)+\epsilon)
+\right]
+]
+
+Where:
+
+- (K) is the number of scales.
+- (\sigma_k) is the Gaussian scale for the (k)-th result.
+- (w_k) is its weight, commonly selected so that the weights sum to one.
+
+Multiple scales help balance local detail enhancement with broader illumination correction. However, aggressive enhancement may introduce noise, colour shifts, or unnatural contrast.
+
+5. Image Evaluation
+
+The project can compare the original and enhanced images using available measurements.
+
+Mean intensity
+
+[
+\mu=\frac{1}{MN}\sum_{x=1}^{M}\sum_{y=1}^{N}I(x,y)
+]
+
+Intensity standard deviation
+
+[
+\sigma_I=
+\sqrt{\frac{1}{MN}\sum_{x=1}^{M}\sum_{y=1}^{N}
+(I(x,y)-\mu)^2}
+]
+
+Where (M) and (N) are the image dimensions.
+
+Mean intensity provides an indication of average brightness, while standard deviation describes intensity variation. Neither measurement alone proves that an enhancement is perceptually better.
+
+Algorithms Implemented
+
+Logarithmic Transformation
+
+Maps darker intensity values into a wider output range to make details more visible.
+
+Single-Scale Retinex
+
+Uses one Gaussian scale to estimate illumination and calculate a reflectance-oriented output.
+
+Multi-Scale Retinex
+
+Combines Retinex outputs across multiple scales to balance local and larger-scale enhancement.
+
+Illumination-Reflectance Decomposition
+
+Models the observed image as the product of illumination and reflectance. The estimated components can help explain the image formation process and guide enhancement.
+
+Refer to the corresponding source files in the "algorithms/" directory for the exact implementation and parameter values.
+
+Technologies Used
+
+Technology| Purpose
+Python| Backend application and image processing
+Flask| Web application framework
+OpenCV| Image processing and filtering
+NumPy| Numerical operations and array manipulation
+HTML| Web page structure
+CSS| Web interface styling
+JavaScript| Browser-side interactions, where implemented
+Git and GitHub| Version control and source code hosting
+
+Project Architecture
+
+The application follows a basic web-based image processing workflow:
+
+1. The user opens the web application.
+2. The user selects and uploads an image.
+3. Flask receives the image and routes the request to the appropriate processing function.
+4. The selected image enhancement algorithm processes the image.
+5. The application returns the enhanced output and any supported statistics.
+6. The browser displays the results to the user.
+
+Project Structure
+
+LowLightEnhancement/
+│
 ├── algorithms/
-│   ├── decomposition.py
-│   ├── logarithmic.py
-│   └── retinex.py
+│   ├── retinex.py
+│   └── decomposition.py
+│
 ├── static/
-│   ├── script.js
-│   └── style.css
+│   ├── css/
+│   ├── js/
+│   └── images/
+│
 ├── templates/
 │   └── index.html
+│
 ├── uploads/
+│
+├── screenshots/
+│   ├── home.png
+│   ├── original-image.png
+│   ├── enhanced-result.png
+│   └── image-statistics.png
+│
 ├── app.py
 ├── requirements.txt
-├── test_opencv.py
+├── README.md
 ├── .gitignore
-└── README.md
+└── test_opencv.py
 
-The structure above describes the main files in the project. Your local files may contain additional modules.
+Note: This is an illustrative structure. Keep the actual filenames and folders in your README consistent with the files present in your repository. Remove example entries that do not exist.
 
-🚀 Installation and Setup
+Installation
 
 Prerequisites
 
-- Python 3.10 or later, compatible with the dependencies in "requirements.txt"
-- Git
+Install the following software:
+
+- Python 3
+- pip
+- Git (optional, for cloning the repository)
 - A modern web browser
 
 1. Clone the repository
 
 git clone https://github.com/madigavenkateshwarlu/LumenRetinex.git
+
+2. Open the project directory
+
 cd LumenRetinex
 
-2. Create a virtual environment
+3. Create a virtual environment
 
-Windows:
+On Windows:
 
 python -m venv venv
-.\venv\Scripts\Activate.ps1
 
-3. Install dependencies
+Activate it:
 
-python -m pip install -r requirements.txt
+venv\Scripts\activate
 
-4. Run the application
+4. Install dependencies
+
+pip install -r requirements.txt
+
+If installation fails, check that the Python version is compatible with the packages listed in "requirements.txt".
+
+How to Run
+
+From the project directory, execute:
 
 python app.py
 
-Open the local address displayed in the terminal. If the application uses the default Flask port, visit:
+Wait for Flask to display the local development server address in the terminal. Open that address in your browser. It is commonly:
 
-"http://127.0.0.1:5000/"
+http://127.0.0.1:5000
 
-🧪 Testing
+The actual address and port depend on the configuration in "app.py".
 
-Run the available OpenCV test script:
+Important: Run this development server locally. Do not expose it publicly without appropriate security and deployment configuration.
 
-python test_opencv.py
+How to Use
 
-For meaningful evaluation, test multiple low-light images and compare their original and enhanced versions.
+1. Start the Flask application.
+2. Open the local URL in a browser.
+3. Select a low-light image from your device.
+4. Choose an enhancement method if the interface provides algorithm selection.
+5. Run the enhancement.
+6. View the original and enhanced outputs.
+7. Review the available image statistics.
+8. Save or download the result if supported by the interface.
+9. Try other enhancement methods and compare their results.
 
-📊 Evaluation
+Application Screenshots
 
-Possible evaluation measures include:
+Add screenshots captured from your actual running application to the "screenshots/" directory.
 
-- Mean brightness: average pixel intensity.
-- Contrast: variation in pixel intensity.
-- Processing time: time required to enhance an image.
-- Visual quality: visibility of objects, details, and image noise.
+1. Home and Image Upload
 
-The results depend on the input image, algorithm parameters, and lighting conditions. Brightness improvement alone does not guarantee better image quality.
+"LumenRetinex Home" (screenshots/home.png)
 
-🔬 Applications
+2. Original Low-Light Image
 
-- Nighttime photography
-- Low-light surveillance images
-- Indoor photography
-- Image preprocessing for computer vision
-- Digital image restoration and enhancement
+"Original Low-Light Image" (screenshots/original-image.png)
 
-⚠️ Limitations
+3. Enhanced Image Result
 
-- Enhancement quality varies with the input image.
-- Increasing brightness may also amplify noise.
-- Retinex parameters and Gaussian scales affect the final result.
-- The project is intended for image enhancement and educational evaluation, not as a guarantee of improved accuracy in every computer vision task.
+"Enhanced Image Result" (screenshots/enhanced-result.png)
 
-🔮 Future Enhancements
+4. Image Statistics
+
+"Image Statistics" (screenshots/image-statistics.png)
+
+Replace these example paths if your screenshot filenames differ. GitHub will display the images once the corresponding files are committed and pushed.
+
+Testing and Evaluation
+
+Test the application using different types of low-light images, such as indoor scenes, night scenes, and images containing both dark and bright regions.
+
+Test case| Expected outcome
+Upload a valid image| The image is accepted and processed
+Apply logarithmic transformation| Darker intensity regions become more visible
+Apply SSR| Retinex processing produces an output image
+Apply MSR| Multiple scales contribute to enhancement
+Process a low-light image| Visibility may improve without excessive artefacts
+Upload an unsupported or invalid file| The application handles the error appropriately
+Inspect output dimensions| The output dimensions are consistent with the implementation
+Review image statistics| Displayed measurements match the calculated output
+
+Results
+
+Record the actual results after testing the application.
+
+Measurement| Original image| Enhanced image
+Mean brightness| Enter measured value| Enter measured value
+Contrast / standard deviation| Enter measured value| Enter measured value
+Visual detail| Describe observed result| Describe observed result
+Colour appearance| Describe observed result| Describe observed result
+
+Do not enter estimated values as measured results. Use actual outputs from your application and include representative before-and-after screenshots.
+
+Limitations
+
+- Enhancement quality depends on the input image and selected parameters.
+- Very dark images may contain insufficient information to recover missing details.
+- Amplifying dark regions may also amplify image noise.
+- Retinex processing may introduce colour shifts or halos in some images.
+- Brightness and contrast statistics do not fully measure perceptual quality.
+- Processing time depends on image dimensions and the algorithm.
+- Supported file formats and upload limits depend on the application configuration.
+
+Future Enhancements
+
+Possible improvements include:
 
 - Add more enhancement algorithms for comparison.
-- Include objective image quality metrics.
-- Build a dataset-based evaluation module.
-- Improve noise reduction and color preservation.
-- Add batch image processing and export options.
-- Deploy the web application online.
+- Provide interactive controls for Retinex scales and enhancement strength.
+- Add side-by-side and adjustable before-and-after comparisons.
+- Include objective evaluation metrics such as PSNR and SSIM when a suitable reference image is available.
+- Add batch image processing.
+- Improve error handling and upload validation.
+- Provide downloadable processing reports.
+- Improve the responsive design for mobile devices.
+- Explore real-time video enhancement.
 
-👨‍💻 Author
+Conclusion
 
-Madiga Venkateshwarlu
+LumenRetinex demonstrates how Digital Image Processing techniques can be applied to low-light image enhancement through a web-based interface. By studying logarithmic transformation, Single-Scale Retinex, Multi-Scale Retinex, and illumination-reflectance decomposition, the project illustrates methods for improving visibility and understanding illumination variation in digital images.
 
-GitHub: "@madigavenkateshwarlu" (https://github.com/madigavenkateshwarlu)
+The project also provides a foundation for further experiments in image enhancement, computer vision, and computational photography.
 
-📄 License
+References
 
-No license has been selected yet. Specify an appropriate open-source license before permitting others to reuse or redistribute this project.
+1. Land, E. H., & McCann, J. J. (1971). Lightness and Retinex Theory. Journal of the Optical Society of America, 61(1), 1–11. https://doi.org/10.1364/JOSA.61.000001
+
+2. OpenCV Documentation. OpenCV: Open Source Computer Vision Library. https://docs.opencv.org/
+
+3. NumPy Documentation. NumPy User Guide. https://numpy.org/doc/
+
+4. Flask Documentation. Flask Web Development. https://flask.palletsprojects.com/
+
+5. Jobson, D. J., Rahman, Z., & Woodell, G. A. (1997). A Multiscale Retinex for Bridging the Gap Between Color Images and the Human Observation of Scenes. IEEE Transactions on Image Processing, 6(7), 965–976. https://doi.org/10.1109/83.597272
+
+Author
+
+Project: LumenRetinex — Low-Light Image Enhancement
+Domain: Digital Image Processing
+Repository: https://github.com/madigavenkateshwarlu/LumenRetinex
+
+Student Name: Add your full name
+Department: Add your department
+Institution: Add your college or university
+Academic Year: Add your academic year
 
 ---
 
-Developed as a Digital Image Processing project to explore classical techniques for low-light image enhancement.
+Developed as an academic Digital Image Processing project.
