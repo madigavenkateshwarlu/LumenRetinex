@@ -11,22 +11,25 @@ import numpy as np
 SIGMA_SSR = 80
 SIGMAS_MSR = (15, 80, 250)
 
+# Preserve the original luminance to reduce washed-out output.
+ORIGINAL_WEIGHT = 0.40
+RETINEX_WEIGHT = 0.60
+
+EPSILON = 1.0
+
 
 # ============================================================
 # IMAGE LOADING
 # ============================================================
 
 def load_image(input_path):
-    """Load an image and validate it."""
-
+    """Load and validate a colour image."""
     input_path = Path(input_path)
 
     image = cv2.imread(str(input_path), cv2.IMREAD_COLOR)
 
     if image is None:
-        raise ValueError(
-            f"Could not load image: {input_path}"
-        )
+        raise ValueError(f"Could not load image: {input_path}")
 
     if image.size == 0:
         raise ValueError("The input image is empty.")
@@ -38,102 +41,142 @@ def load_image(input_path):
 # NORMALIZATION
 # ============================================================
 
-def normalize_channel(
-    channel,
-    low_percentile=1,
-    high_percentile=99
-):
-    """Normalize a floating-point channel to uint8."""
+def percentile_normalize(image, low_percentile=1, high_percentile=99):
+    """Normalize image values robustly using percentiles."""
+    image = image.astype(np.float32)
 
-    channel = channel.astype(np.float32)
-
-    low = float(np.percentile(channel, low_percentile))
-    high = float(np.percentile(channel, high_percentile))
+    low = float(np.percentile(image, low_percentile))
+    high = float(np.percentile(image, high_percentile))
 
     if high - low < 1e-6:
-        return np.clip(channel, 0, 255).astype(np.uint8)
+        return np.zeros_like(image, dtype=np.float32)
 
-    normalized = (channel - low) / (high - low)
-    normalized = np.clip(normalized, 0.0, 1.0)
+    normalized = (image - low) / (high - low)
 
-    return np.round(normalized * 255).astype(np.uint8)
+    return np.clip(normalized, 0.0, 1.0)
 
 
 # ============================================================
-# IMAGE SAVING
+# GAUSSIAN ILLUMINATION ESTIMATION
 # ============================================================
 
-def save_image(output_path, image):
-    """Create output directories and save an image."""
+def estimate_illumination(luminance, sigma):
+    """
+    Estimate illumination using Gaussian blur.
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    For large Gaussian scales, blur a reduced-resolution image
+    and resize it back. This reduces the cost of large-scale
+    illumination estimation.
 
-    success = cv2.imwrite(str(output_path), image)
+    The reduction is an approximation, so the output should
+    be checked visually against the full-resolution version.
+    """
+    luminance = luminance.astype(np.float32)
 
-    if not success:
-        raise ValueError(
-            f"Could not save enhanced image: {output_path}"
+    if sigma >= 200:
+        factor = 4
+    elif sigma >= 80:
+        factor = 2
+    else:
+        factor = 1
+
+    height, width = luminance.shape[:2]
+
+    if factor == 1:
+        illumination = cv2.GaussianBlur(
+            luminance,
+            (0, 0),
+            sigmaX=float(sigma),
+            sigmaY=float(sigma),
+            borderType=cv2.BORDER_REFLECT
         )
+    else:
+        small_width = max(1, width // factor)
+        small_height = max(1, height // factor)
+
+        small_luminance = cv2.resize(
+            luminance,
+            (small_width, small_height),
+            interpolation=cv2.INTER_AREA
+        )
+
+        small_illumination = cv2.GaussianBlur(
+            small_luminance,
+            (0, 0),
+            sigmaX=float(sigma) / factor,
+            sigmaY=float(sigma) / factor,
+            borderType=cv2.BORDER_REFLECT
+        )
+
+        illumination = cv2.resize(
+            small_illumination,
+            (width, height),
+            interpolation=cv2.INTER_LINEAR
+        )
+
+    # Prevent log(0).
+    return np.maximum(illumination, EPSILON)
+
+
+# ============================================================
+# RETINEX RECONSTRUCTION
+# ============================================================
+
+def reconstruct_from_luminance(lab, enhanced_luminance):
+    """Replace LAB luminance while retaining original colour channels."""
+    output_lab = lab.copy()
+
+    output_lab[:, :, 0] = np.clip(
+        enhanced_luminance, 0, 255
+    ).astype(np.uint8)
+
+    return cv2.cvtColor(output_lab, cv2.COLOR_LAB2BGR)
 
 
 # ============================================================
 # SINGLE-SCALE RETINEX (SSR)
 # ============================================================
 
-def single_scale_retinex(
-    input_path,
-    output_path,
-    sigma=SIGMA_SSR
-):
+def single_scale_retinex(input_path, output_path=None, sigma=SIGMA_SSR):
     """
-    Single-Scale Retinex.
+    Apply Single-Scale Retinex to the LAB luminance channel.
 
-    R(x,y) = log(I(x,y) + epsilon)
-             - log(G_sigma(x,y) + epsilon)
+    Parameters:
+        input_path: Input image path.
+        output_path: Optional output image path.
+        sigma: Gaussian scale.
 
-    Processing is performed on luminance to preserve color.
+    Returns:
+        Enhanced BGR image as a NumPy array.
     """
-
     if sigma <= 0:
-        raise ValueError("Sigma must be greater than zero.")
+        raise ValueError("SSR sigma must be positive.")
 
     image = load_image(input_path)
 
-    # LAB separates brightness from color information.
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-
-    luminance = lab[:, :, 0].astype(np.float32) + 1.0
-
-    illumination = cv2.GaussianBlur(
-        luminance,
-        (0, 0),
-        sigmaX=float(sigma),
-        sigmaY=float(sigma)
-    )
-
-    illumination = np.maximum(illumination, 1.0)
-
-    retinex = np.log(luminance) - np.log(illumination)
-
-    # Normalize the Retinex response.
-    retinex_normalized = normalize_channel(retinex)
-
     original_luminance = lab[:, :, 0].astype(np.float32)
 
-    # Blend the result with original luminance.
+    luminance = original_luminance + EPSILON
+
+    illumination = estimate_illumination(luminance, sigma)
+
+    response = np.log(luminance) - np.log(illumination)
+
+    normalized = percentile_normalize(response)
+    retinex_luminance = normalized * 255.0
+
     enhanced_luminance = (
-        0.40 * original_luminance
-        + 0.60 * retinex_normalized.astype(np.float32)
+        ORIGINAL_WEIGHT * original_luminance
+        + RETINEX_WEIGHT * retinex_luminance
     )
 
-    lab[:, :, 0] = np.clip(
-        enhanced_luminance, 0, 255
-    ).astype(np.uint8)
+    enhanced = reconstruct_from_luminance(
+        lab, enhanced_luminance
+    )
 
-    enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
-    save_image(output_path, enhanced)
+    if output_path is not None:
+        save_image(enhanced, output_path)
 
     return enhanced
 
@@ -144,17 +187,16 @@ def single_scale_retinex(
 
 def multi_scale_retinex(
     input_path,
-    output_path,
+    output_path=None,
     sigmas=SIGMAS_MSR
 ):
     """
-    Multi-Scale Retinex.
+    Apply Multi-Scale Retinex using several Gaussian scales.
 
-    Combines several Gaussian scales and processes luminance
-    instead of independently stretching RGB color channels.
-    This helps preserve more natural colors.
+    Large scales use reduced-resolution illumination estimation
+    to improve performance. The remaining algorithm, normalization,
+    colour reconstruction, and luminance blending are retained.
     """
-
     if not sigmas:
         raise ValueError("At least one Retinex scale is required.")
 
@@ -163,30 +205,17 @@ def multi_scale_retinex(
 
     image = load_image(input_path)
 
-    # Convert BGR to LAB.
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-
     original_luminance = lab[:, :, 0].astype(np.float32)
 
-    # Avoid log(0).
-    luminance = original_luminance + 1.0
+    luminance = original_luminance + EPSILON
 
-    retinex = np.zeros_like(
-        luminance, dtype=np.float32
-    )
+    retinex = np.zeros_like(luminance, dtype=np.float32)
 
-    # Compute Retinex at multiple scales.
+    # Compute Retinex responses at multiple scales.
     for sigma in sigmas:
-
-        illumination = cv2.GaussianBlur(
-            luminance,
-            (0, 0),
-            sigmaX=float(sigma),
-            sigmaY=float(sigma)
-        )
-
-        illumination = np.maximum(
-            illumination, 1.0
+        illumination = estimate_illumination(
+            luminance, float(sigma)
         )
 
         scale_response = (
@@ -196,122 +225,70 @@ def multi_scale_retinex(
 
         retinex += scale_response
 
-    retinex /= len(sigmas)
+    # Average the responses from the selected scales.
+    retinex /= float(len(sigmas))
 
-    # Robust percentile normalization.
-    low = float(np.percentile(retinex, 1))
-    high = float(np.percentile(retinex, 99))
-
-    if high - low < 1e-6:
-        raise ValueError(
-            "Insufficient luminance variation for Retinex."
-        )
-
-    normalized = np.clip(
-        (retinex - low) / (high - low),
-        0.0,
-        1.0
-    )
-
+    # Robust normalization.
+    normalized = percentile_normalize(retinex)
     retinex_luminance = normalized * 255.0
 
-    # Blend with original luminance to reduce washed-out output.
+    # Blend with original luminance to avoid excessive brightening.
     enhanced_luminance = (
-        0.40 * original_luminance
-        + 0.60 * retinex_luminance
+        ORIGINAL_WEIGHT * original_luminance
+        + RETINEX_WEIGHT * retinex_luminance
     )
 
-    lab[:, :, 0] = np.clip(
-        enhanced_luminance, 0, 255
-    ).astype(np.uint8)
-
-    # Convert back to the original color space.
-    enhanced = cv2.cvtColor(
-        lab, cv2.COLOR_LAB2BGR
+    enhanced = reconstruct_from_luminance(
+        lab, enhanced_luminance
     )
 
-    save_image(output_path, enhanced)
+    if output_path is not None:
+        save_image(enhanced, output_path)
 
     return enhanced
 
 
 # ============================================================
-# IMAGE STATISTICS
+# IMAGE SAVING
 # ============================================================
 
-def image_statistics(image):
-    """Return image dimensions, brightness and contrast."""
+def save_image(image, output_path):
+    """Save an image and report any write failure."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    gray = cv2.cvtColor(
-        image, cv2.COLOR_BGR2GRAY
-    )
+    success = cv2.imwrite(str(output_path), image)
 
-    return {
-        "width": int(image.shape[1]),
-        "height": int(image.shape[0]),
-        "brightness": round(
-            float(np.mean(gray)), 2
-        ),
-        "contrast": round(
-            float(np.std(gray)), 2
-        )
-    }
+    if not success:
+        raise ValueError(f"Could not save output image: {output_path}")
+
+    return str(output_path)
 
 
 # ============================================================
-# TEST BOTH ALGORITHMS
+# DIRECT TEST
 # ============================================================
-
-def run_tests():
-
-    base_dir = Path(__file__).resolve().parent.parent
-    upload_dir = base_dir / "uploads"
-
-    input_path = upload_dir / "dark.jpg"
-
-    ssr_path = upload_dir / "retinex_enhanced.jpg"
-    msr_path = upload_dir / "msr_enhanced.jpg"
-
-    if not input_path.exists():
-        raise FileNotFoundError(
-            f"Image not found: {input_path}\n"
-            "Place the original image at uploads/dark.jpg."
-        )
-
-    original = load_image(input_path)
-
-    print("Original image statistics:")
-    print(image_statistics(original))
-
-    # Run SSR.
-    ssr_result = single_scale_retinex(
-        input_path, ssr_path
-    )
-
-    print("\nSingle-Scale Retinex completed.")
-    print(f"Saved: {ssr_path}")
-    print("Statistics:", image_statistics(ssr_result))
-
-    # Run MSR.
-    msr_result = multi_scale_retinex(
-        input_path, msr_path
-    )
-
-    print("\nMulti-Scale Retinex completed.")
-    print(f"Saved: {msr_path}")
-    print("Statistics:", image_statistics(msr_result))
-
-    print("\nAll Retinex tests completed successfully.")
-
 
 if __name__ == "__main__":
+    import time
 
-    try:
-        run_tests()
+    project_root = Path(__file__).resolve().parent.parent
+    input_path = project_root / "uploads" / "dark.jpg"
+    output_path = project_root / "uploads" / "msr_test_output.jpg"
 
-    except (
-        ValueError,
-        FileNotFoundError,
-        cv2.error
-    ) as error:
-        print(f"\nEnhancement failed: {error}")
+    if not input_path.exists():
+        print(f"Place a test image at: {input_path}")
+    else:
+        start = time.perf_counter()
+
+        multi_scale_retinex(
+            input_path,
+            output_path,
+            SIGMAS_MSR
+        )
+
+        elapsed = time.perf_counter() - start
+
+        print("MSR completed successfully.")
+        print(f"Output: {output_path}")
+        print(f"Processing time: {elapsed:.3f} seconds")

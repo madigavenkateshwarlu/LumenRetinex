@@ -4,7 +4,14 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    request,
+    send_from_directory,
+    url_for,
+)
 from werkzeug.utils import secure_filename
 
 from algorithms.logarithmic import logarithmic_enhancement
@@ -16,27 +23,35 @@ from algorithms.decomposition import illumination_reflectance_decomposition
 
 
 # ============================================================
-# LumenRetinex - Flask Application
+# APPLICATION CONFIGURATION
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "webp"}
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "tif", "tiff"}
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 def allowed_file(filename):
+    """Check the uploaded file extension."""
     return (
         "." in filename
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
     )
 
 
-def image_statistics(image):
+def image_metrics(image):
+    """Calculate descriptive brightness and contrast measurements."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     return {
@@ -47,159 +62,225 @@ def image_statistics(image):
     }
 
 
-def enhance_image(input_path, output_path, method):
-    """Run the selected enhancement algorithm."""
+def normalize_method(method):
+    """Accept common method names from frontend controls."""
+    method = (method or "").strip().lower()
 
-    if method == "logarithmic":
-        result = logarithmic_enhancement(
-            input_path, output_path
-        )
+    aliases = {
+        "log": "logarithmic",
+        "log_transform": "logarithmic",
+        "logarithmic_transform": "logarithmic",
+        "ssr": "ssr",
+        "single_scale_retinex": "ssr",
+        "msr": "msr",
+        "multi_scale_retinex": "msr",
+        "decomposition": "decomposition",
+        "illumination_reflectance": "decomposition",
+    }
 
-    elif method == "ssr":
-        result = single_scale_retinex(
-            input_path, output_path
-        )
+    return aliases.get(method, method)
 
-    elif method == "msr":
-        result = multi_scale_retinex(
-            input_path, output_path
-        )
 
-    elif method == "decomposition":
-        result = illumination_reflectance_decomposition(
-            input_path, UPLOAD_DIR
-        )
+def save_uploaded_image(file_storage):
+    """Save an uploaded file using a generated safe filename."""
+    original_name = secure_filename(file_storage.filename or "")
 
-        # The decomposition function may return
-        # illumination, reflectance and enhanced image.
-        if isinstance(result, tuple):
-            result = result[-1]
+    if not original_name:
+        raise ValueError("Please choose an image file.")
 
-        if result is None:
-            result = cv2.imread(str(output_path))
-
-        if result is None:
-            raise ValueError(
-                "Decomposition did not return an enhanced image."
-            )
-
-        if not cv2.imwrite(str(output_path), result):
-            raise ValueError("Could not save decomposition output.")
-
-    else:
-        raise ValueError("Please select a valid enhancement method.")
-
-    # Some implementations return the enhanced image;
-    # others only save it to disk.
-    if result is None:
-        result = cv2.imread(str(output_path))
-
-    if result is None:
+    if not allowed_file(original_name):
         raise ValueError(
-            "Enhancement failed. No output image was generated."
+            "Unsupported image format. Use JPG, PNG, BMP, or TIFF."
         )
 
-    # Ensure the returned result is saved to the requested path.
-    if not cv2.imwrite(str(output_path), result):
-        raise ValueError("Could not save the enhanced image.")
+    extension = Path(original_name).suffix.lower()
+    filename = f"input_{uuid4().hex}{extension}"
+    input_path = UPLOAD_DIR / filename
 
-    return result
+    file_storage.save(str(input_path))
+
+    # Verify that OpenCV can decode the file.
+    image = cv2.imread(str(input_path), cv2.IMREAD_COLOR)
+
+    if image is None or image.size == 0:
+        input_path.unlink(missing_ok=True)
+        raise ValueError("The uploaded file is not a valid image.")
+
+    return input_path, image
 
 
-@app.route("/")
-def index():
+def run_enhancement(method, input_path, output_path):
+    """Dispatch the selected method and return the enhanced image."""
+    if method == "logarithmic":
+        # Keep the argument style consistent with your existing
+        # logarithmic.py implementation.
+        result = logarithmic_enhancement(
+            str(input_path),
+            str(output_path)
+        )
+
+        # Support functions that either save the file or return an array.
+        if isinstance(result, np.ndarray):
+            return result
+
+        image = cv2.imread(str(output_path), cv2.IMREAD_COLOR)
+        if image is None:
+            raise RuntimeError(
+                "Logarithmic transformation did not create an output image."
+            )
+        return image
+
+    if method == "ssr":
+        return single_scale_retinex(
+            str(input_path),
+            str(output_path)
+        )
+
+    if method == "msr":
+        return multi_scale_retinex(
+            str(input_path),
+            str(output_path)
+        )
+
+    if method == "decomposition":
+        _, _, enhanced_image = illumination_reflectance_decomposition(
+            str(input_path),
+            str(output_path.parent)
+        )
+
+        if not cv2.imwrite(str(output_path), enhanced_image):
+            raise RuntimeError(
+                "Could not save the decomposition output image."
+            )
+        return enhanced_image
+
+    raise ValueError(
+        "Unknown method. Choose logarithmic, ssr, msr, or decomposition."
+    )
+
+
+# ============================================================
+# ROUTES
+# ============================================================
+
+@app.route("/", methods=["GET"])
+def home():
     return render_template("index.html")
 
 
 @app.route("/enhance", methods=["POST"])
 def enhance():
-    start_time = perf_counter()
+    input_path = None
+    output_path = None
 
     try:
-        # Accept either common upload field name.
-        uploaded_file = (
-            request.files.get("image")
-            or request.files.get("file")
-        )
+        uploaded_file = request.files.get("image")
+
+        if uploaded_file is None:
+            uploaded_file = request.files.get("file")
 
         if uploaded_file is None or not uploaded_file.filename:
             return jsonify({
-                "error": "Please upload an image."
+                "success": False,
+                "error": "Please upload an image first."
             }), 400
 
-        if not allowed_file(uploaded_file.filename):
-            return jsonify({
-                "error": "Unsupported image format."
-            }), 400
-
-        method = request.form.get(
-            "method", "msr"
-        ).strip().lower()
+        method = normalize_method(request.form.get("method", "msr"))
 
         valid_methods = {
-            "logarithmic", "ssr", "msr", "decomposition"
+            "logarithmic",
+            "ssr",
+            "msr",
+            "decomposition",
         }
 
         if method not in valid_methods:
             return jsonify({
-                "error": "Invalid enhancement method."
+                "success": False,
+                "error": f"Unsupported enhancement method: {method}"
             }), 400
 
-        # Generate unique filenames to avoid overwriting uploads.
-        image_id = uuid4().hex
-        safe_name = secure_filename(uploaded_file.filename)
-        extension = Path(safe_name).suffix.lower() or ".jpg"
+        input_path, original_image = save_uploaded_image(uploaded_file)
 
-        input_name = f"{image_id}_original{extension}"
-        output_name = f"{image_id}_enhanced.png"
+        output_filename = f"enhanced_{uuid4().hex}.png"
+        output_path = UPLOAD_DIR / output_filename
 
-        input_path = UPLOAD_DIR / input_name
-        output_path = UPLOAD_DIR / output_name
+        original_metrics = image_metrics(original_image)
 
-        uploaded_file.save(str(input_path))
+        # Measure the enhancement operation separately from upload,
+        # input decoding, and the browser's image display.
+        start = perf_counter()
 
-        original = cv2.imread(str(input_path))
-
-        if original is None:
-            return jsonify({
-                "error": "The uploaded file is not a valid image."
-            }), 400
-
-        enhanced = enhance_image(
-            input_path, output_path, method
+        enhanced_image = run_enhancement(
+            method,
+            input_path,
+            output_path
         )
 
-        before = image_statistics(original)
-        after = image_statistics(enhanced)
+        processing_time = perf_counter() - start
 
-        elapsed = round(perf_counter() - start_time, 3)
+        if enhanced_image is None or not isinstance(
+            enhanced_image, np.ndarray
+        ):
+            raise RuntimeError("The enhancement algorithm returned no image.")
 
+        if enhanced_image.size == 0:
+            raise RuntimeError("The enhancement output is empty.")
+
+        # Ensure output exists, even if an algorithm returned an array
+        # without saving it.
+        if not output_path.exists():
+            if not cv2.imwrite(str(output_path), enhanced_image):
+                raise RuntimeError("Could not save the enhanced image.")
+
+        enhanced_metrics = image_metrics(enhanced_image)
+
+        original_url = url_for(
+            "uploaded_file",
+            filename=input_path.name
+        )
+        enhanced_url = url_for(
+            "uploaded_file",
+            filename=output_path.name
+        )
+
+        # Include common field aliases to simplify frontend integration.
         return jsonify({
             "success": True,
             "method": method,
-            "original": f"/uploads/{input_name}",
-            "enhanced": f"/uploads/{output_name}",
-            "brightness_before": before["brightness"],
-            "brightness_after": after["brightness"],
-            "contrast_before": before["contrast"],
-            "contrast_after": after["contrast"],
-            "processing_time": elapsed,
-            "width": after["width"],
-            "height": after["height"],
-            "download": f"/uploads/{output_name}",
+            "original_url": original_url,
+            "enhanced_url": enhanced_url,
+            "output_url": enhanced_url,
+            "download_url": url_for(
+                "download_file",
+                filename=output_path.name
+            ),
+            "processing_time": round(processing_time, 4),
+            "original": original_metrics,
+            "enhanced": enhanced_metrics,
+            "brightness_before": original_metrics["brightness"],
+            "brightness_after": enhanced_metrics["brightness"],
+            "contrast_before": original_metrics["contrast"],
+            "contrast_after": enhanced_metrics["contrast"],
+            "width": enhanced_metrics["width"],
+            "height": enhanced_metrics["height"],
         })
 
-    except (ValueError, cv2.error) as error:
-        return jsonify({"error": str(error)}), 400
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 400
 
-    except Exception:
+    except Exception as exc:
         app.logger.exception("Image enhancement failed")
         return jsonify({
-            "error": "Enhancement failed. Check the terminal for details."
+            "success": False,
+            "error": "Image enhancement failed. Check the server terminal."
         }), 500
 
 
-@app.route("/uploads/<path:filename>")
+@app.route("/uploads/<path:filename>", methods=["GET"])
 def uploaded_file(filename):
     return send_from_directory(
         str(UPLOAD_DIR),
@@ -208,12 +289,30 @@ def uploaded_file(filename):
     )
 
 
+@app.route("/download/<path:filename>", methods=["GET"])
+def download_file(filename):
+    return send_from_directory(
+        str(UPLOAD_DIR),
+        filename,
+        as_attachment=True
+    )
+
+
 @app.errorhandler(413)
-def file_too_large(error):
+def file_too_large(_error):
     return jsonify({
-        "error": "Image is too large. Maximum size is 15 MB."
+        "success": False,
+        "error": "Image is too large. Maximum upload size is 20 MB."
     }), 413
 
 
+# ============================================================
+# START APPLICATION
+# ============================================================
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host="127.0.0.1",
+        port=5000,
+        debug=True
+    )

@@ -1,107 +1,527 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LumenRetinex | Low-Light Enhancement</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumenRetinex | Low-Light Enhancement</title>
+
+<style>
+:root {
+  --bg: #080b09;
+  --card: #111815;
+  --inner: #0b100d;
+  --green: #39d878;
+  --text: #f1f5f2;
+  --muted: #98a99e;
+  --border: #29382f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg) !important;
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  padding: 35px 20px;
+}
+
+main {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+header {
+  margin-bottom: 30px;
+}
+
+.eyebrow {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.brand {
+  margin: 12px 0;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.brand span {
+  color: var(--green);
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 650px;
+}
+
+.step {
+  width: 100%;
+  margin: 22px auto;
+  padding: 25px;
+  background: var(--card) !important;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.step-title {
+  margin: 0 0 10px;
+  font-size: 19px;
+  color: var(--text);
+}
+
+.step-title span {
+  color: var(--green);
+}
+
+.description {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+/* Image upload */
+.upload-box {
+  padding: 30px 15px;
+  text-align: center;
+  background: var(--inner) !important;
+  border: 1px dashed #3b5945;
+  border-radius: 12px;
+}
+
+.upload-icon {
+  color: var(--green);
+  font-size: 30px;
+  margin-bottom: 12px;
+}
+
+.upload-box strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 9px;
+}
+
+.upload-box small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 15px;
+}
+
+input[type="file"] {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#filename {
+  color: var(--green);
+  font-size: 12px;
+  margin-top: 15px;
+  overflow-wrap: anywhere;
+}
+
+#preview {
+  display: none;
+  max-width: 100%;
+  max-height: 300px;
+  margin: 18px auto 0;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+/* Algorithm selection */
+.algorithm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.algorithm-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+
+.algorithm-card:hover {
+  border-color: #477653;
+}
+
+.algorithm-card:has(input:checked) {
+  background: #14241a;
+  border-color: var(--green);
+}
+
+.algorithm-card input {
+  margin-top: 4px;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+
+.algorithm-card strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.algorithm-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 7px;
+}
+
+/* Buttons and messages */
+button {
+  margin-top: 20px;
+  padding: 13px 20px;
+  background: var(--green);
+  color: #07180d;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+#status {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Results */
+#results {
+  display: none;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.result-card {
+  min-width: 0;
+  padding: 15px;
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.result-card h3 {
+  margin: 0 0 13px;
+  font-size: 14px;
+}
+
+.result-card img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 7px;
+  background: #050706;
+}
+
+#stats {
+  color: var(--green);
+  font-size: 12px;
+  line-height: 2;
+  overflow-wrap: anywhere;
+  margin-top: 18px;
+}
+
+footer {
+  text-align: center;
+  color: #718278;
+  font-size: 11px;
+  padding: 22px 0 5px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body {
+    padding: 22px 12px;
+  }
+
+  .brand {
+    font-size: 29px;
+  }
+
+  .step {
+    padding: 18px;
+  }
+
+  .algorithm-grid,
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 </head>
+
 <body>
-    <header class="navbar">
-        <a class="brand" href="/">
-            <span class="brand-icon">✦</span>
-            <span>Lumen<span class="accent">Retinex</span></span>
-        </a>
-        <span class="nav-label">DIGITAL IMAGE PROCESSING</span>
-    </header>
+<main>
 
-    <main class="container">
-        <section class="hero">
-            <span class="eyebrow">IMAGE ENHANCEMENT STUDIO</span>
-            <h1>Bring dark images<br>into the <span class="accent">light.</span></h1>
-            <p>Enhance low-light photos using classical Digital Image Processing algorithms.</p>
-        </section>
+<header>
+  <div class="eyebrow">Digital Image Processing Project</div>
+  <h1 class="brand">Lumen<span>Retinex</span></h1>
+  <div class="subtitle">
+    Bring dark images back to life. Enhance low-light images using
+    logarithmic transformation, Retinex algorithms, and
+    illumination-reflectance decomposition.
+  </div>
+</header>
 
-        <section class="panel">
-            <h2>01 / Upload your image</h2>
-            <label class="upload-area" id="uploadArea" for="imageInput">
-                <span class="upload-icon">↑</span>
-                <strong>Drop your image here</strong>
-                <span>or click to browse · JPG, PNG, WEBP · Max 10 MB</span>
-                <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
-            </label>
-            <p id="fileName" class="file-name">No image selected</p>
-            <div id="previewContainer" class="image-grid hidden">
-                <div>
-                    <h3>Original image</h3>
-                    <img id="originalPreview" alt="Original image preview">
-                </div>
-            </div>
-        </section>
+<!-- 01: Upload -->
+<section class="step">
+  <h2 class="step-title"><span>01 /</span> Upload image</h2>
+  <p class="description">Select a dark or low-light image to enhance.</p>
 
-        <section class="panel">
-            <h2>02 / Choose an algorithm</h2>
-            <div class="method-grid">
-                <label class="method-card">
-                    <input type="radio" name="method" value="log">
-                    <span class="method-number">01</span>
-                    <strong>Log Transform</strong>
-                    <span>Expands darker pixel intensities.</span>
-                </label>
-                <label class="method-card">
-                    <input type="radio" name="method" value="ssr">
-                    <span class="method-number">02</span>
-                    <strong>Single Scale Retinex</strong>
-                    <span>Estimates illumination at one scale.</span>
-                </label>
-                <label class="method-card">
-                    <input type="radio" name="method" value="msr" checked>
-                    <span class="method-number">03</span>
-                    <strong>Multi-Scale Retinex</strong>
-                    <span>Combines several illumination scales.</span>
-                </label>
-                <label class="method-card">
-                    <input type="radio" name="method" value="decomposition">
-                    <span class="method-number">04</span>
-                    <strong>Illumination–Reflectance</strong>
-                    <span>Separates estimated illumination and reflectance.</span>
-                </label>
-            </div>
-            <button id="enhanceButton" class="primary-button">Enhance image <span>→</span></button>
-            <p id="status" class="status" role="status"></p>
-        </section>
+  <div class="upload-box">
+    <div class="upload-icon">▧</div>
+    <strong>Choose an image from your device</strong>
+    <small>JPG, JPEG, PNG, BMP, or TIFF · Maximum 20 MB</small>
 
-        <section id="results" class="panel hidden">
-            <h2>03 / Enhancement results</h2>
-            <div class="image-grid">
-                <div>
-                    <h3>Original</h3>
-                    <img id="originalResult" alt="Original image">
-                </div>
-                <div>
-                    <h3>Enhanced</h3>
-                    <img id="enhancedResult" alt="Enhanced image">
-                </div>
-            </div>
+    <input type="file" id="image" accept="image/*">
+    <p id="filename">No image selected</p>
+    <img id="preview" alt="Selected image preview">
+  </div>
+</section>
 
-            <div class="metrics">
-                <div><span>Brightness before</span><strong id="brightnessBefore">—</strong></div>
-                <div><span>Brightness after</span><strong id="brightnessAfter">—</strong></div>
-                <div><span>Contrast before</span><strong id="contrastBefore">—</strong></div>
-                <div><span>Contrast after</span><strong id="contrastAfter">—</strong></div>
-                <div><span>Processing time</span><strong id="processingTime">—</strong></div>
-            </div>
+<!-- 02: Algorithm -->
+<section class="step">
+  <h2 class="step-title"><span>02 /</span> Select algorithm</h2>
+  <p class="description">Choose the image enhancement method.</p>
 
-            <a id="downloadButton" class="download-button" href="#" download="enhanced.png">
-                Download enhanced image ↓
-            </a>
-        </section>
+  <div class="algorithm-grid">
 
-        <footer>
-            <p>LowLightEnhance · Classical DIP algorithms · Built with Python and OpenCV</p>
-        </footer>
-    </main>
+    <label class="algorithm-card">
+      <input type="radio" name="method" value="log">
+      <span>
+        <strong>01 — Log Transform</strong>
+        <small>Expands darker pixel intensities using logarithmic mapping.</small>
+      </span>
+    </label>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <label class="algorithm-card">
+      <input type="radio" name="method" value="ssr">
+      <span>
+        <strong>02 — Single-Scale Retinex</strong>
+        <small>Estimates illumination at a single Gaussian scale.</small>
+      </span>
+    </label>
+
+    <label class="algorithm-card">
+      <input type="radio" name="method" value="msr" checked>
+      <span>
+        <strong>03 — Multi-Scale Retinex</strong>
+        <small>Combines several illumination scales for enhancement.</small>
+      </span>
+    </label>
+
+    <label class="algorithm-card">
+      <input type="radio" name="method" value="decomposition">
+      <span>
+        <strong>04 — Illumination-Reflectance</strong>
+        <small>Separates estimated illumination and reflectance.</small>
+      </span>
+    </label>
+
+  </div>
+
+  <button id="enhance">Enhance image →</button>
+  <p id="status" aria-live="polite"></p>
+</section>
+
+<!-- 03: Results -->
+<section class="step" id="results">
+  <h2 class="step-title"><span>03 /</span> Enhancement results</h2>
+
+  <div class="result-grid">
+    <div class="result-card">
+      <h3>Original</h3>
+      <img id="original" alt="Original image">
+    </div>
+
+    <div class="result-card">
+      <h3>Enhanced</h3>
+      <img id="enhanced" alt="Enhanced image">
+    </div>
+  </div>
+
+  <div id="stats"></div>
+
+  <a id="download" download="lumenretinex-enhanced.png">
+    <button type="button">Download enhanced image ↓</button>
+  </a>
+</section>
+
+<footer>
+  LumenRetinex · Classical DIP algorithms · Built with Python and OpenCV
+</footer>
+
+</main>
+
+<script>
+const picker = document.getElementById("image");
+const preview = document.getElementById("preview");
+const filename = document.getElementById("filename");
+const statusText = document.getElementById("status");
+const results = document.getElementById("results");
+const enhanceButton = document.getElementById("enhance");
+
+let selectedFile = null;
+let previewUrl = null;
+
+picker.addEventListener("change", function () {
+  selectedFile = picker.files[0] || null;
+  results.style.display = "none";
+  statusText.textContent = "";
+
+  if (!selectedFile) {
+    preview.style.display = "none";
+    filename.textContent = "No image selected";
+    return;
+  }
+
+  if (!selectedFile.type.startsWith("image/")) {
+    alert("Please select an image file.");
+    picker.value = "";
+    selectedFile = null;
+    preview.style.display = "none";
+    filename.textContent = "No image selected";
+    return;
+  }
+
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+  previewUrl = URL.createObjectURL(selectedFile);
+  preview.src = previewUrl;
+  preview.style.display = "block";
+  filename.textContent = selectedFile.name;
+});
+
+document.querySelectorAll('input[name="method"]').forEach(input => {
+  input.addEventListener("change", () => {
+    document.querySelectorAll(".algorithm-card").forEach(card => {
+      card.classList.remove("selected");
+    });
+    input.closest(".algorithm-card").classList.add("selected");
+  });
+});
+
+enhanceButton.addEventListener("click", async function () {
+  if (!selectedFile) {
+    alert("Please select an image first.");
+    picker.click();
+    return;
+  }
+
+  const method = document.querySelector(
+    'input[name="method"]:checked'
+  ).value;
+
+  const formData = new FormData();
+  formData.append("image", selectedFile);
+  formData.append("method", method);
+
+  enhanceButton.disabled = true;
+  statusText.textContent = "Enhancing image... Please wait.";
+  results.style.display = "none";
+
+  try {
+    const response = await fetch("/enhance", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.success === false || data.error) {
+      throw new Error(data.error || "Image enhancement failed.");
+    }
+
+    const enhancedUrl =
+      data.enhanced_url || data.output_url || data.enhanced;
+
+    if (!enhancedUrl) {
+      throw new Error("Enhanced image URL missing. Check app.py.");
+    }
+
+    document.getElementById("original").src =
+      data.original_url || data.original || preview.src;
+
+    document.getElementById("enhanced").src = enhancedUrl;
+
+    document.getElementById("download").href = enhancedUrl;
+
+    const stats = [];
+
+    if (data.brightness_before != null) {
+      stats.push(
+        `Brightness: ${data.brightness_before} → ${data.brightness_after}`
+      );
+    }
+
+    if (data.contrast_before != null) {
+      stats.push(
+        `Contrast: ${data.contrast_before} → ${data.contrast_after}`
+      );
+    }
+
+    if (data.processing_time != null) {
+      stats.push(
+        `Processing time: ${Number(data.processing_time).toFixed(3)} sec`
+      );
+    }
+
+    document.getElementById("stats").textContent = stats.join(" | ");
+
+    results.style.display = "block";
+    statusText.textContent = "Enhancement completed successfully!";
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  } catch (error) {
+    statusText.textContent = "Error: " + error.message;
+  } finally {
+    enhanceButton.disabled = false;
+  }
+});
+</script>
+
 </body>
 </html>
